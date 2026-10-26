@@ -196,11 +196,9 @@ updateButton.addEventListener("click", async function() {
   updateButton.textContent = "Update हो रहा है...";
 
   try {
-    await db.ref("assignedOrders/" + user.uid + "/" + child.key)
-      .update({
-        status: statusSelect.value,
-        updatedAt: Date.now()
-      });
+    await db.ref(
+  "assignedOrders/" + user.uid + "/" + child.key + "/status"
+).set(statusSelect.value);
 
     order.status = statusSelect.value;
     card.innerHTML =
