@@ -3,22 +3,22 @@
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bikaner Express - Delivery Boy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bikaner Express Delivery</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #fff8ed;
       color: #382417;
       margin: 0;
-      padding: 20px;
+      padding: 16px;
     }
     .card {
-      max-width: 430px;
-      margin: 30px auto;
+      max-width: 480px;
+      margin: 25px auto;
+      padding: 20px;
       background: white;
-      padding: 22px;
-      border-radius: 16px;
+      border-radius: 14px;
       box-shadow: 0 4px 16px #0001;
     }
     h1 { color: #a94313; }
@@ -37,36 +37,46 @@
       border: 0;
       font-weight: bold;
     }
-    #message { overflow-wrap: anywhere; }
+    .secondary { background: #604832; }
+    #message { overflow-wrap: anywhere; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>🛵 Bikaner Express</h1>
-    <h2>Delivery Boy Signup</h2>
-    <p>डिलीवरी पार्टनर बनने के लिए अकाउंट बनाएँ।</p>
+    <p>Delivery Partner Portal</p>
+    <p id="message" role="status">लोड हो रहा है...</p>
 
-    <form id="signupForm">
-      <input id="name" type="text"
-        placeholder="पूरा नाम" required>
+    <div id="authPanel" style="display:none">
+      <button id="showLogin" type="button">Delivery Boy Login</button>
+      <button id="showSignup" class="secondary" type="button">नया Signup</button>
 
-      <input id="phone" type="tel"
-        placeholder="10 अंकों का मोबाइल नंबर"
-        pattern="[0-9]{10}" maxlength="10" required>
+      <form id="loginForm" style="display:none">
+        <h2>Login</h2>
+        <input id="loginEmail" type="email" placeholder="Email" required>
+        <input id="loginPassword" type="password" placeholder="Password" required>
+        <button type="submit">Login करें</button>
+      </form>
 
-      <input id="email" type="email"
-        placeholder="Email address" required>
+      <form id="signupForm" style="display:none">
+        <h2>नया अकाउंट बनाएँ</h2>
+        <input id="name" type="text" placeholder="पूरा नाम" required>
+        <input id="phone" type="tel" placeholder="10 अंकों का मोबाइल नंबर"
+          pattern="[0-9]{10}" maxlength="10" required>
+        <input id="signupEmail" type="email" placeholder="Email" required>
+        <input id="signupPassword" type="password"
+          placeholder="कम से कम 8 अक्षर का Password" minlength="8" required>
+        <button type="submit">Signup करें</button>
+      </form>
+    </div>
 
-      <input id="password" type="password"
-        placeholder="कम से कम 8 अक्षर का Password"
-        minlength="8" required>
-
-      <button id="signupButton" type="submit">
-        Signup करें
-      </button>
-    </form>
-
-    <p id="message" role="status"></p>
+    <div id="deliveryDashboard" style="display:none">
+      <h2>Delivery Dashboard</h2>
+      <p id="boyDetails"></p>
+      <p>आपका अकाउंट Approved है। ✅</p>
+      <p>अभी कोई ऑर्डर असाइन नहीं किया गया है।</p>
+      <button id="logoutButton" type="button">Logout</button>
+    </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -84,69 +94,139 @@
       appId: "1:852964791053:web:94c129e58b72a375661644"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
 
     const auth = firebase.auth();
     const db = firebase.database();
 
-    document.getElementById("signupForm")
-      .addEventListener("submit", async function(event) {
-        event.preventDefault();
+    const message = document.getElementById("message");
+    const authPanel = document.getElementById("authPanel");
+    const loginForm = document.getElementById("loginForm");
+    const signupForm = document.getElementById("signupForm");
+    const dashboard = document.getElementById("deliveryDashboard");
 
-        const name = document.getElementById("name").value.trim();
-        const phone = document.getElementById("phone").value.trim();
-        const email = document.getElementById("email").value.trim();
-        const password = document.getElementById("password").value;
-        const message = document.getElementById("message");
-        const button = document.getElementById("signupButton");
+    function showLogin() {
+      loginForm.style.display = "block";
+      signupForm.style.display = "none";
+      message.textContent = "अपने Delivery Boy अकाउंट से Login करें।";
+    }
 
-        if (!/^[0-9]{10}$/.test(phone)) {
-          message.textContent = "कृपया सही 10 अंकों का मोबाइल नंबर डालें।";
+    function showSignup() {
+      signupForm.style.display = "block";
+      loginForm.style.display = "none";
+      message.textContent = "नया Delivery Boy अकाउंट बनाएँ।";
+    }
+
+    document.getElementById("showLogin").onclick = showLogin;
+    document.getElementById("showSignup").onclick = showSignup;
+
+    async function checkDeliveryBoy(user) {
+      authPanel.style.display = "none";
+      dashboard.style.display = "none";
+      message.textContent = "आपका अकाउंट चेक हो रहा है...";
+
+      try {
+        const snapshot = await db.ref("deliveryBoys/" + user.uid).once("value");
+
+        if (!snapshot.exists()) {
+          message.textContent =
+            "Delivery Boy प्रोफ़ाइल नहीं मिली। Admin से संपर्क करें।";
+          await auth.signOut();
           return;
         }
 
-        button.disabled = true;
-        message.textContent = "अकाउंट बनाया जा रहा है...";
+        const boy = snapshot.val();
 
-        try {
-          const result = await auth.createUserWithEmailAndPassword(
-            email, password
-          );
-
-          await db.ref("deliveryBoys/" + result.user.uid).set({
-            name: name,
-            phone: phone,
-            email: email,
-            status: "pending",
-            createdAt: Date.now()
-          });
-
+        if (boy.status !== "approved") {
           message.textContent =
-            "Signup सफल! आपका अकाउंट Admin की मंज़ूरी का इंतज़ार कर रहा है।";
-          document.getElementById("signupForm").reset();
-
-        } catch (error) {
-          console.error(error);
-
-          if (error.code === "auth/email-already-in-use") {
-            message.textContent = "यह Email पहले से रजिस्टर है।";
-          } else if (error.code === "auth/weak-password") {
-            message.textContent = "Password कम से कम 8 अक्षर का रखें।";
-          } else if (error.code === "auth/invalid-email") {
-            message.textContent = "Email address सही नहीं है।";
-          } else if (error.code === "PERMISSION_DENIED" ||
-                     error.code === "database/permission-denied") {
-            message.textContent =
-              "अकाउंट बन गया हो सकता है, लेकिन प्रोफ़ाइल सेव नहीं हुई। Firebase Rules जाँचनी होंगी।";
-          } else {
-            message.textContent =
-              "Signup पूरा नहीं हुआ। इंटरनेट और Firebase Authentication सेटिंग जाँचें।";
-          }
-        } finally {
-          button.disabled = false;
+            "आपका अकाउंट अभी मंज़ूर नहीं हुआ है। Admin की मंज़ूरी का इंतज़ार करें।";
+          return;
         }
-      });
+
+        dashboard.style.display = "block";
+        message.textContent = "Login सफल!";
+        document.getElementById("boyDetails").textContent =
+          "नाम: " + (boy.name || "-") +
+          "\nमोबाइल: " + (boy.phone || "-");
+
+      } catch (error) {
+        console.error(error);
+        message.textContent =
+          "अकाउंट चेक नहीं हो पाया। इंटरनेट और Firebase Rules जाँचें।";
+      }
+    }
+
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        await checkDeliveryBoy(user);
+      } else {
+        dashboard.style.display = "none";
+        authPanel.style.display = "block";
+        showLogin();
+      }
+    });
+
+    loginForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      message.textContent = "Login हो रहा है...";
+
+      try {
+        await auth.signInWithEmailAndPassword(
+          document.getElementById("loginEmail").value.trim(),
+          document.getElementById("loginPassword").value
+        );
+      } catch (error) {
+        console.error(error);
+        message.textContent =
+          "Login नहीं हुआ। Email और Password जाँचें।";
+      }
+    });
+
+    signupForm.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const email = document.getElementById("signupEmail").value.trim();
+      const password = document.getElementById("signupPassword").value;
+
+      if (!/^[0-9]{10}$/.test(phone)) {
+        message.textContent = "सही 10 अंकों का मोबाइल नंबर डालें।";
+        return;
+      }
+
+      message.textContent = "Signup हो रहा है...";
+
+      try {
+        const result = await auth.createUserWithEmailAndPassword(email, password);
+
+        await db.ref("deliveryBoys/" + result.user.uid).set({
+          name: name,
+          phone: phone,
+          email: email,
+          status: "pending",
+          createdAt: Date.now()
+        });
+
+        message.textContent =
+          "Signup सफल! Admin की मंज़ूरी का इंतज़ार करें।";
+        signupForm.reset();
+
+      } catch (error) {
+        console.error(error);
+        message.textContent =
+          error.code === "auth/email-already-in-use"
+            ? "यह Email पहले से रजिस्टर है। Login करें।"
+            : "Signup पूरा नहीं हुआ। इंटरनेट और Firebase Rules जाँचें।";
+      }
+    });
+
+    document.getElementById("logoutButton").onclick = async () => {
+      await auth.signOut();
+      message.textContent = "आप Logout हो गए हैं।";
+    };
   </script>
 </body>
 </html>
-
