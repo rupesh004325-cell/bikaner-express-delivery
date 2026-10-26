@@ -216,7 +216,7 @@ updateButton.addEventListener("click", async function() {
     updateButton.textContent = "Updated ✓";
   } catch (error) {
     console.error(error);
-    alert("Status अपडेट नहीं हुआ। Firebase Rules जाँचें।");
+    alert("Error: " + error.code + " - " + error.message);
     updateButton.disabled = false;
     updateButton.textContent = "Status Update";
   }
