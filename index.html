@@ -51,8 +51,8 @@
         placeholder="पूरा नाम" required>
 
       <input id="phone" type="tel"
-        placeholder="मोबाइल नंबर" required
-        pattern="[0-9]{10}" maxlength="10">
+        placeholder="10 अंकों का मोबाइल नंबर"
+        pattern="[0-9]{10}" maxlength="10" required>
 
       <input id="email" type="email"
         placeholder="Email address" required>
@@ -61,10 +61,92 @@
         placeholder="कम से कम 8 अक्षर का Password"
         minlength="8" required>
 
-      <button type="submit">Signup करें</button>
+      <button id="signupButton" type="submit">
+        Signup करें
+      </button>
     </form>
 
     <p id="message" role="status"></p>
   </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDhumnH7lRnz_LVJLTMklksusBPaDAkCh4",
+      authDomain: "bikaner-express-537a2.firebaseapp.com",
+      databaseURL: "https://bikaner-express-537a2-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "bikaner-express-537a2",
+      storageBucket: "bikaner-express-537a2.firebasestorage.app",
+      messagingSenderId: "852964791053",
+      appId: "1:852964791053:web:94c129e58b72a375661644"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    document.getElementById("signupForm")
+      .addEventListener("submit", async function(event) {
+        event.preventDefault();
+
+        const name = document.getElementById("name").value.trim();
+        const phone = document.getElementById("phone").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        const message = document.getElementById("message");
+        const button = document.getElementById("signupButton");
+
+        if (!/^[0-9]{10}$/.test(phone)) {
+          message.textContent = "कृपया सही 10 अंकों का मोबाइल नंबर डालें।";
+          return;
+        }
+
+        button.disabled = true;
+        message.textContent = "अकाउंट बनाया जा रहा है...";
+
+        try {
+          const result = await auth.createUserWithEmailAndPassword(
+            email, password
+          );
+
+          await db.ref("deliveryBoys/" + result.user.uid).set({
+            name: name,
+            phone: phone,
+            email: email,
+            status: "pending",
+            createdAt: Date.now()
+          });
+
+          message.textContent =
+            "Signup सफल! आपका अकाउंट Admin की मंज़ूरी का इंतज़ार कर रहा है।";
+          document.getElementById("signupForm").reset();
+
+        } catch (error) {
+          console.error(error);
+
+          if (error.code === "auth/email-already-in-use") {
+            message.textContent = "यह Email पहले से रजिस्टर है।";
+          } else if (error.code === "auth/weak-password") {
+            message.textContent = "Password कम से कम 8 अक्षर का रखें।";
+          } else if (error.code === "auth/invalid-email") {
+            message.textContent = "Email address सही नहीं है।";
+          } else if (error.code === "PERMISSION_DENIED" ||
+                     error.code === "database/permission-denied") {
+            message.textContent =
+              "अकाउंट बन गया हो सकता है, लेकिन प्रोफ़ाइल सेव नहीं हुई। Firebase Rules जाँचनी होंगी।";
+          } else {
+            message.textContent =
+              "Signup पूरा नहीं हुआ। इंटरनेट और Firebase Authentication सेटिंग जाँचें।";
+          }
+        } finally {
+          button.disabled = false;
+        }
+      });
+  </script>
 </body>
 </html>
+
