@@ -175,7 +175,55 @@ if (assignedOrdersBox) {
           "<br><b>पता:</b> " + (order.address || "-") +
           "<br><b>कुल:</b> ₹" + (order.total || 0) +
           "<br><b>स्थिति:</b> " + (order.status || "Assigned");
+const statusSelect = document.createElement("select");
 
+["Accepted", "Out for Delivery", "Delivered"].forEach(function(status) {
+  const option = document.createElement("option");
+  option.value = status;
+  option.textContent = status;
+  if (order.status === status) {
+    option.selected = true;
+  }
+  statusSelect.appendChild(option);
+});
+
+const updateButton = document.createElement("button");
+updateButton.type = "button";
+updateButton.textContent = "Status Update";
+
+updateButton.addEventListener("click", async function() {
+  updateButton.disabled = true;
+  updateButton.textContent = "Update हो रहा है...";
+
+  try {
+    await db.ref("assignedOrders/" + user.uid + "/" + child.key)
+      .update({
+        status: statusSelect.value,
+        updatedAt: Date.now()
+      });
+
+    order.status = statusSelect.value;
+    card.innerHTML =
+      "<b>ऑर्डर:</b> " + (order.orderId || child.key) +
+      "<br><b>ग्राहक:</b> " + (order.name || "-") +
+      "<br><b>मोबाइल:</b> " + (order.phone || "-") +
+      "<br><b>पता:</b> " + (order.address || "-") +
+      "<br><b>कुल:</b> ₹" + (order.total || 0) +
+      "<br><b>स्थिति:</b> " + order.status;
+
+    card.appendChild(statusSelect);
+    card.appendChild(updateButton);
+    updateButton.textContent = "Updated ✓";
+  } catch (error) {
+    console.error(error);
+    alert("Status अपडेट नहीं हुआ। Firebase Rules जाँचें।");
+    updateButton.disabled = false;
+    updateButton.textContent = "Status Update";
+  }
+});
+
+card.appendChild(statusSelect);
+card.appendChild(updateButton);
         assignedOrdersBox.appendChild(card);
       });
     }
