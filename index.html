@@ -74,7 +74,10 @@
       <h2>Delivery Dashboard</h2>
       <p id="boyDetails"></p>
       <p>आपका अकाउंट Approved है। ✅</p>
-      <p>अभी कोई ऑर्डर असाइन नहीं किया गया है।</p>
+      <div id="assignedOrdersBox">
+  <h3>मेरे असाइन किए गए ऑर्डर</h3>
+  <p>अभी कोई ऑर्डर असाइन नहीं किया गया है।</p>
+</div>
       <button id="logoutButton" type="button">Logout</button>
     </div>
   </div>
@@ -146,6 +149,41 @@
         }
 
         dashboard.style.display = "block";
+        message.textContent = "Login सफल!";
+        const assignedOrdersBox = document.getElementById("assignedOrdersBox");
+
+if (assignedOrdersBox) {
+  assignedOrdersBox.innerHTML = "<h3>मेरे असाइन किए गए ऑर्डर</h3><p>ऑर्डर लोड हो रहे हैं...</p>";
+
+  try {
+    const ordersSnapshot = await db.ref("assignedOrders/" + user.uid).once("value");
+
+    assignedOrdersBox.innerHTML = "<h3>मेरे असाइन किए गए ऑर्डर</h3>";
+
+    if (!ordersSnapshot.exists()) {
+      assignedOrdersBox.innerHTML += "<p>अभी कोई ऑर्डर असाइन नहीं किया गया है।</p>";
+    } else {
+      ordersSnapshot.forEach(function(child) {
+        const order = child.val();
+        const card = document.createElement("div");
+
+        card.style.cssText = "border:1px solid #ccc;padding:12px;margin:10px 0;border-radius:8px;";
+        card.innerHTML =
+          "<b>ऑर्डर:</b> " + (order.orderId || child.key) +
+          "<br><b>ग्राहक:</b> " + (order.name || "-") +
+          "<br><b>मोबाइल:</b> " + (order.phone || "-") +
+          "<br><b>पता:</b> " + (order.address || "-") +
+          "<br><b>कुल:</b> ₹" + (order.total || 0) +
+          "<br><b>स्थिति:</b> " + (order.status || "Assigned");
+
+        assignedOrdersBox.appendChild(card);
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    assignedOrdersBox.innerHTML = "<h3>मेरे असाइन किए गए ऑर्डर</h3><p>ऑर्डर लोड नहीं हुए। इंटरनेट या Firebase Rules जाँचें।</p>";
+  }
+}
         message.textContent = "Login सफल!";
         document.getElementById("boyDetails").textContent =
           "नाम: " + (boy.name || "-") +
