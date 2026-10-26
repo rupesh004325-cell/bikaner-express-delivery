@@ -1,0 +1,70 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bikaner Express - Delivery Boy</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff8ed;
+      color: #382417;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      max-width: 430px;
+      margin: 30px auto;
+      background: white;
+      padding: 22px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px #0001;
+    }
+    h1 { color: #a94313; }
+    input, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 13px;
+      margin-top: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+    }
+    input { border: 1px solid #d8c8b8; }
+    button {
+      background: #a94313;
+      color: white;
+      border: 0;
+      font-weight: bold;
+    }
+    #message { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🛵 Bikaner Express</h1>
+    <h2>Delivery Boy Signup</h2>
+    <p>डिलीवरी पार्टनर बनने के लिए अकाउंट बनाएँ।</p>
+
+    <form id="signupForm">
+      <input id="name" type="text"
+        placeholder="पूरा नाम" required>
+
+      <input id="phone" type="tel"
+        placeholder="मोबाइल नंबर" required
+        pattern="[0-9]{10}" maxlength="10">
+
+      <input id="email" type="email"
+        placeholder="Email address" required>
+
+      <input id="password" type="password"
+        placeholder="कम से कम 8 अक्षर का Password"
+        minlength="8" required>
+
+      <button type="submit">Signup करें</button>
+    </form>
+
+    <p id="message" role="status"></p>
+  </div>
+</body>
+</html>
