@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bikaner Express Delivery</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,6 +14,7 @@
       margin: 0;
       padding: 16px;
     }
+
     .card {
       max-width: 480px;
       margin: 25px auto;
@@ -21,8 +23,10 @@
       border-radius: 14px;
       box-shadow: 0 4px 16px #0001;
     }
+
     h1 { color: #a94313; }
-    input, button {
+
+    input, button, select {
       width: 100%;
       box-sizing: border-box;
       padding: 13px;
@@ -30,55 +34,121 @@
       font-size: 16px;
       border-radius: 8px;
     }
-    input { border: 1px solid #d8c8b8; }
+
+    input, select {
+      border: 1px solid #d8c8b8;
+      background: white;
+    }
+
     button {
       background: #a94313;
       color: white;
       border: 0;
       font-weight: bold;
+      cursor: pointer;
     }
+
+    button:disabled {
+      opacity: 0.6;
+    }
+
     .secondary { background: #604832; }
-    #message { overflow-wrap: anywhere; white-space: pre-wrap; }
+
+    .order {
+      border: 1px solid #ddcbb9;
+      padding: 14px;
+      margin: 14px 0;
+      border-radius: 10px;
+      background: #fffdf9;
+      overflow-wrap: anywhere;
+    }
+
+    .order p {
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+
+    #message {
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .muted {
+      color: #78695d;
+      font-size: 14px;
+    }
   </style>
 </head>
+
 <body>
+
   <div class="card">
     <h1>🛵 Bikaner Express</h1>
     <p>Delivery Partner Portal</p>
+
     <p id="message" role="status">लोड हो रहा है...</p>
 
     <div id="authPanel" style="display:none">
-      <button id="showLogin" type="button">Delivery Boy Login</button>
-      <button id="showSignup" class="secondary" type="button">नया Signup</button>
+
+      <button id="showLogin" type="button">
+        Delivery Boy Login
+      </button>
+
+      <button id="showSignup" class="secondary" type="button">
+        नया Signup
+      </button>
 
       <form id="loginForm" style="display:none">
         <h2>Login</h2>
-        <input id="loginEmail" type="email" placeholder="Email" required>
-        <input id="loginPassword" type="password" placeholder="Password" required>
+
+        <input id="loginEmail" type="email"
+          placeholder="Email" required>
+
+        <input id="loginPassword" type="password"
+          placeholder="Password" required>
+
         <button type="submit">Login करें</button>
       </form>
 
       <form id="signupForm" style="display:none">
         <h2>नया अकाउंट बनाएँ</h2>
-        <input id="name" type="text" placeholder="पूरा नाम" required>
-        <input id="phone" type="tel" placeholder="10 अंकों का मोबाइल नंबर"
+
+        <input id="name" type="text"
+          placeholder="पूरा नाम" required>
+
+        <input id="phone" type="tel"
+          placeholder="10 अंकों का मोबाइल नंबर"
           pattern="[0-9]{10}" maxlength="10" required>
-        <input id="signupEmail" type="email" placeholder="Email" required>
+
+        <input id="signupEmail" type="email"
+          placeholder="Email" required>
+
         <input id="signupPassword" type="password"
-          placeholder="कम से कम 8 अक्षर का Password" minlength="8" required>
+          placeholder="कम से कम 8 अक्षर का Password"
+          minlength="8" required>
+
         <button type="submit">Signup करें</button>
       </form>
+
     </div>
 
     <div id="deliveryDashboard" style="display:none">
+
       <h2>Delivery Dashboard</h2>
+
       <p id="boyDetails"></p>
+
       <p>आपका अकाउंट Approved है। ✅</p>
+
       <div id="assignedOrdersBox">
-  <h3>मेरे असाइन किए गए ऑर्डर</h3>
-  <p>अभी कोई ऑर्डर असाइन नहीं किया गया है।</p>
-</div>
-      <button id="logoutButton" type="button">Logout</button>
+        <h3>मेरे असाइन किए गए ऑर्डर</h3>
+        <p>ऑर्डर लोड हो रहे हैं...</p>
+      </div>
+
+      <button id="logoutButton" type="button">
+        Logout
+      </button>
+
     </div>
   </div>
 
@@ -109,6 +179,11 @@
     const loginForm = document.getElementById("loginForm");
     const signupForm = document.getElementById("signupForm");
     const dashboard = document.getElementById("deliveryDashboard");
+    const assignedOrdersBox =
+      document.getElementById("assignedOrdersBox");
+
+    let assignedOrdersRef = null;
+    let assignedOrdersListener = null;
 
     function showLogin() {
       loginForm.style.display = "block";
@@ -125,13 +200,289 @@
     document.getElementById("showLogin").onclick = showLogin;
     document.getElementById("showSignup").onclick = showSignup;
 
+    function stopOrderListener() {
+      if (assignedOrdersRef && assignedOrdersListener) {
+        assignedOrdersRef.off("value", assignedOrdersListener);
+      }
+
+      assignedOrdersRef = null;
+      assignedOrdersListener = null;
+    }
+
+    function addText(parent, label, value) {
+      const p = document.createElement("p");
+      const strong = document.createElement("b");
+
+      strong.textContent = label + ": ";
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(
+        value === undefined || value === null || value === ""
+          ? "-"
+          : String(value)
+      ));
+
+      parent.appendChild(p);
+    }
+
+    async function getFullOrder(assignment, assignmentKey) {
+      const customerUid = assignment.customerUid;
+      const orderKey =
+        assignment.orderKey || assignmentKey;
+
+      if (!customerUid || !orderKey) {
+        return {
+          assignment,
+          order: assignment,
+          orderKey
+        };
+      }
+
+      try {
+        const snapshot = await db.ref(
+          "orders/" + customerUid + "/" + orderKey
+        ).once("value");
+
+        const mainOrder = snapshot.exists()
+          ? snapshot.val()
+          : {};
+
+        return {
+          assignment,
+          order: {
+            ...assignment,
+            ...mainOrder
+          },
+          orderKey,
+          customerUid
+        };
+
+      } catch (error) {
+        console.error("Order details error:", error);
+
+        return {
+          assignment,
+          order: assignment,
+          orderKey,
+          customerUid,
+          detailsError: true
+        };
+      }
+    }
+
+    async function updateOrderStatus(
+      user,
+      orderInfo,
+      newStatus,
+      button
+    ) {
+      button.disabled = true;
+      button.textContent = "Update हो रहा है...";
+
+      try {
+        const customerUid = orderInfo.customerUid;
+        const orderKey = orderInfo.orderKey;
+
+        if (!customerUid || !orderKey) {
+          throw new Error("ग्राहक की Order ID नहीं मिली।");
+        }
+
+        // पहले मुख्य ऑर्डर का Status अपडेट करें।
+        await db.ref(
+          "orders/" + customerUid + "/" + orderKey + "/status"
+        ).set(newStatus);
+
+        // फिर Delivery Boy के assignedOrders में Status अपडेट करें।
+        await db.ref(
+          "assignedOrders/" + user.uid + "/" +
+          orderInfo.assignmentKey + "/status"
+        ).set(newStatus);
+
+        button.textContent = "Updated ✓";
+        button.disabled = true;
+
+        message.textContent =
+          "ऑर्डर " + newStatus + " हो गया है।";
+
+      } catch (error) {
+        console.error("Status update error:", error);
+
+        alert(
+          "Status अपडेट नहीं हुआ।\n" +
+          error.code + "\n" + error.message
+        );
+
+        button.disabled = false;
+        button.textContent = "Status Update";
+      }
+    }
+
+    async function renderAssignedOrders(user, snapshot) {
+      assignedOrdersBox.innerHTML = "";
+
+      const heading = document.createElement("h3");
+      heading.textContent = "मेरे असाइन किए गए ऑर्डर";
+      assignedOrdersBox.appendChild(heading);
+
+      if (!snapshot.exists()) {
+        const p = document.createElement("p");
+        p.textContent = "अभी कोई ऑर्डर असाइन नहीं किया गया है।";
+        assignedOrdersBox.appendChild(p);
+        return;
+      }
+
+      const orderPromises = [];
+
+      snapshot.forEach(function(child) {
+        orderPromises.push(
+          getFullOrder(child.val() || {}, child.key)
+        );
+      });
+
+      const orders = await Promise.all(orderPromises);
+
+      for (const info of orders) {
+        const order = info.order || {};
+        const card = document.createElement("div");
+
+        card.className = "order";
+
+        const orderKey = info.orderKey || "-";
+        info.assignmentKey =
+          info.orderKey || order.orderKey || orderKey;
+
+        addText(card, "ऑर्डर ID", order.orderId || orderKey);
+        addText(card, "ग्राहक", order.name);
+        addText(card, "मोबाइल", order.phone);
+        addText(card, "पता", order.address);
+        addText(card, "दुकान", order.shop);
+        addText(card, "कुल रकम", "₹" + (order.total || 0));
+        addText(card, "स्थिति", order.status || "Assigned");
+
+        if (info.detailsError) {
+          const warning = document.createElement("p");
+          warning.className = "muted";
+          warning.textContent =
+            "ग्राहक की पूरी जानकारी लोड नहीं हो पाई।";
+          card.appendChild(warning);
+        }
+
+        if (order.items) {
+          const itemsHeading = document.createElement("p");
+          itemsHeading.innerHTML = "<b>ऑर्डर के सामान:</b>";
+          card.appendChild(itemsHeading);
+
+          const itemsList = document.createElement("ul");
+
+          if (Array.isArray(order.items)) {
+            order.items.forEach(function(item) {
+              const li = document.createElement("li");
+              li.textContent =
+                (item.name || "Item") +
+                " × " + (item.quantity || 1);
+              itemsList.appendChild(li);
+            });
+          } else {
+            Object.values(order.items).forEach(function(item) {
+              const li = document.createElement("li");
+              li.textContent =
+                (item.name || "Item") +
+                " × " + (item.quantity || 1);
+              itemsList.appendChild(li);
+            });
+          }
+
+          card.appendChild(itemsList);
+        }
+
+        const statusSelect = document.createElement("select");
+
+        const statusOptions = [
+          "Accepted",
+          "Out for Delivery",
+          "Delivered"
+        ];
+
+        statusOptions.forEach(function(status) {
+          const option = document.createElement("option");
+          option.value = status;
+          option.textContent = status;
+
+          if (order.status === status) {
+            option.selected = true;
+          }
+
+          statusSelect.appendChild(option);
+        });
+
+        const updateButton = document.createElement("button");
+        updateButton.type = "button";
+        updateButton.textContent = "Status Update";
+
+        if (order.status === "Delivered") {
+          statusSelect.disabled = true;
+          updateButton.disabled = true;
+          updateButton.textContent = "ऑर्डर Delivered ✓";
+        } else {
+          updateButton.addEventListener("click", function() {
+            updateOrderStatus(
+              user,
+              info,
+              statusSelect.value,
+              updateButton
+            );
+          });
+        }
+
+        card.appendChild(statusSelect);
+        card.appendChild(updateButton);
+
+        assignedOrdersBox.appendChild(card);
+      }
+    }
+
+    function startOrderListener(user) {
+      stopOrderListener();
+
+      assignedOrdersBox.innerHTML =
+        "<h3>मेरे असाइन किए गए ऑर्डर</h3>" +
+        "<p>ऑर्डर लोड हो रहे हैं...</p>";
+
+      assignedOrdersRef =
+        db.ref("assignedOrders/" + user.uid);
+
+      assignedOrdersListener = function(snapshot) {
+        renderAssignedOrders(user, snapshot).catch(function(error) {
+          console.error(error);
+          assignedOrdersBox.innerHTML =
+            "<h3>मेरे असाइन किए गए ऑर्डर</h3>" +
+            "<p>ऑर्डर दिखाने में समस्या हुई। पेज Refresh करें।</p>";
+        });
+      };
+
+      assignedOrdersRef.on(
+        "value",
+        assignedOrdersListener,
+        function(error) {
+          console.error("Firebase read error:", error);
+
+          assignedOrdersBox.innerHTML =
+            "<h3>मेरे असाइन किए गए ऑर्डर</h3>" +
+            "<p>ऑर्डर लोड नहीं हुए। Firebase Rules जाँचें।</p>";
+        }
+      );
+    }
+
     async function checkDeliveryBoy(user) {
       authPanel.style.display = "none";
       dashboard.style.display = "none";
       message.textContent = "आपका अकाउंट चेक हो रहा है...";
 
+      stopOrderListener();
+
       try {
-        const snapshot = await db.ref("deliveryBoys/" + user.uid).once("value");
+        const snapshot = await db.ref(
+          "deliveryBoys/" + user.uid
+        ).once("value");
 
         if (!snapshot.exists()) {
           message.textContent =
@@ -150,109 +501,33 @@
 
         dashboard.style.display = "block";
         message.textContent = "Login सफल!";
-        const assignedOrdersBox = document.getElementById("assignedOrdersBox");
 
-if (assignedOrdersBox) {
-  assignedOrdersBox.innerHTML = "<h3>मेरे असाइन किए गए ऑर्डर</h3><p>ऑर्डर लोड हो रहे हैं...</p>";
-
-  try {
-    const ordersSnapshot = await db.ref("assignedOrders/" + user.uid).once("value");
-
-    assignedOrdersBox.innerHTML = "<h3>मेरे असाइन किए गए ऑर्डर</h3>";
-
-    if (!ordersSnapshot.exists()) {
-      assignedOrdersBox.innerHTML += "<p>अभी कोई ऑर्डर असाइन नहीं किया गया है।</p>";
-    } else {
-      ordersSnapshot.forEach(function(child) {
-        const order = child.val();
-        const card = document.createElement("div");
-
-        card.style.cssText = "border:1px solid #ccc;padding:12px;margin:10px 0;border-radius:8px;";
-        card.innerHTML =
-          "<b>ऑर्डर:</b> " + (order.orderId || child.key) +
-          "<br><b>ग्राहक:</b> " + (order.name || "-") +
-          "<br><b>मोबाइल:</b> " + (order.phone || "-") +
-          "<br><b>पता:</b> " + (order.address || "-") +
-          "<br><b>कुल:</b> ₹" + (order.total || 0) +
-          "<br><b>स्थिति:</b> " + (order.status || "Assigned");
-const statusSelect = document.createElement("select");
-
-["Accepted", "Out for Delivery", "Delivered"].forEach(function(status) {
-  const option = document.createElement("option");
-  option.value = status;
-  option.textContent = status;
-  if (order.status === status) {
-    option.selected = true;
-  }
-  statusSelect.appendChild(option);
-});
-
-const updateButton = document.createElement("button");
-updateButton.type = "button";
-updateButton.textContent = "Status Update";
-
-updateButton.addEventListener("click", async function() {
-  updateButton.disabled = true;
-  updateButton.textContent = "Update हो रहा है...";
-
-  try {
-    await db.ref(
-  "assignedOrders/" + user.uid + "/" + child.key + "/status"
-).set(statusSelect.value);
-
-    order.status = statusSelect.value;
-    card.innerHTML =
-      "<b>ऑर्डर:</b> " + (order.orderId || child.key) +
-      "<br><b>ग्राहक:</b> " + (order.name || "-") +
-      "<br><b>मोबाइल:</b> " + (order.phone || "-") +
-      "<br><b>पता:</b> " + (order.address || "-") +
-      "<br><b>कुल:</b> ₹" + (order.total || 0) +
-      "<br><b>स्थिति:</b> " + order.status;
-
-    card.appendChild(statusSelect);
-    card.appendChild(updateButton);
-    updateButton.textContent = "Updated ✓";
-  } catch (error) {
-    console.error(error);
-    alert("Error: " + error.code + " - " + error.message);
-    updateButton.disabled = false;
-    updateButton.textContent = "Status Update";
-  }
-});
-
-card.appendChild(statusSelect);
-card.appendChild(updateButton);
-        assignedOrdersBox.appendChild(card);
-      });
-    }
-  } catch (error) {
-    console.error(error);
-    assignedOrdersBox.innerHTML = "<h3>मेरे असाइन किए गए ऑर्डर</h3><p>ऑर्डर लोड नहीं हुए। इंटरनेट या Firebase Rules जाँचें।</p>";
-  }
-}
-        message.textContent = "Login सफल!";
         document.getElementById("boyDetails").textContent =
           "नाम: " + (boy.name || "-") +
           "\nमोबाइल: " + (boy.phone || "-");
 
+        startOrderListener(user);
+
       } catch (error) {
         console.error(error);
+
         message.textContent =
           "अकाउंट चेक नहीं हो पाया। इंटरनेट और Firebase Rules जाँचें।";
       }
     }
 
-    auth.onAuthStateChanged(async user => {
+    auth.onAuthStateChanged(async function(user) {
       if (user) {
         await checkDeliveryBoy(user);
       } else {
+        stopOrderListener();
         dashboard.style.display = "none";
         authPanel.style.display = "block";
         showLogin();
       }
     });
 
-    loginForm.addEventListener("submit", async event => {
+    loginForm.addEventListener("submit", async function(event) {
       event.preventDefault();
       message.textContent = "Login हो रहा है...";
 
@@ -268,25 +543,39 @@ card.appendChild(updateButton);
       }
     });
 
-    signupForm.addEventListener("submit", async event => {
+    signupForm.addEventListener("submit", async function(event) {
       event.preventDefault();
 
-      const name = document.getElementById("name").value.trim();
-      const phone = document.getElementById("phone").value.trim();
-      const email = document.getElementById("signupEmail").value.trim();
-      const password = document.getElementById("signupPassword").value;
+      const name =
+        document.getElementById("name").value.trim();
+
+      const phone =
+        document.getElementById("phone").value.trim();
+
+      const email =
+        document.getElementById("signupEmail").value.trim();
+
+      const password =
+        document.getElementById("signupPassword").value;
 
       if (!/^[0-9]{10}$/.test(phone)) {
-        message.textContent = "सही 10 अंकों का मोबाइल नंबर डालें।";
+        message.textContent =
+          "सही 10 अंकों का मोबाइल नंबर डालें।";
         return;
       }
 
       message.textContent = "Signup हो रहा है...";
 
       try {
-        const result = await auth.createUserWithEmailAndPassword(email, password);
+        const result =
+          await auth.createUserWithEmailAndPassword(
+            email,
+            password
+          );
 
-        await db.ref("deliveryBoys/" + result.user.uid).set({
+        await db.ref(
+          "deliveryBoys/" + result.user.uid
+        ).set({
           name: name,
           phone: phone,
           email: email,
@@ -296,10 +585,12 @@ card.appendChild(updateButton);
 
         message.textContent =
           "Signup सफल! Admin की मंज़ूरी का इंतज़ार करें।";
+
         signupForm.reset();
 
       } catch (error) {
         console.error(error);
+
         message.textContent =
           error.code === "auth/email-already-in-use"
             ? "यह Email पहले से रजिस्टर है। Login करें।"
@@ -307,10 +598,13 @@ card.appendChild(updateButton);
       }
     });
 
-    document.getElementById("logoutButton").onclick = async () => {
-      await auth.signOut();
-      message.textContent = "आप Logout हो गए हैं।";
-    };
+    document.getElementById("logoutButton").onclick =
+      async function() {
+        stopOrderListener();
+        await auth.signOut();
+        message.textContent = "आप Logout हो गए हैं।";
+      };
   </script>
+
 </body>
 </html>
